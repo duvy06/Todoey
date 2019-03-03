@@ -15,7 +15,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).last! as String
+        // print path to userDefaults but did not work with new swift !!
+        // path given:/Users/duvy/Library/Developer/CoreSimulator/Devices/E50D6F0B-4236-4CCB-8128-C70E30EB67A5/data/Containers/Data/Application/DA5DA2BF-AD12-4BD4-8FF5-2C8D1991F779/Documents
+        
+        //print(NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).last! as String)
         return true
     }
 
