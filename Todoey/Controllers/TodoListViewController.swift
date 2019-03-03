@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListViewController: UITableViewController {
 
@@ -14,13 +15,17 @@ class TodoListViewController: UITableViewController {
 
     // set as global to declare a new plist insteed using userDefault one
     // this will declare where my plist will be stored
-    let datafilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items2.plist")
+    //let datafilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items2.plist")
     //let defaults = UserDefaults.standard
-    
+    // used by CoreData
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        print(datafilePath!)
+        // used to locate where CoreDate SQLITE is located
+        // let datafilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        //print(datafilePath)
+//        sourceURL = "file:///Users/duvy/Library/Developer/CoreSimulator/Devices/E50D6F0B-4236-4CCB-8128-C70E30EB67A5/data/Containers/Data/Application/50976AF2-B0AA-4FD8-892A-062917537843/Library/Application%20Support/DataModel.sqlite";
 
         // this print return :
         // file:///Users/duvy/Library/Developer/CoreSimulator/Devices/E50D6F0B-4236-4CCB-8128-C70E30EB67A5/data/Containers/Data/Application/588FBA8A-E746-4B6C-9E92-3AC8C2B933EF/Documents/
@@ -41,7 +46,10 @@ class TodoListViewController: UITableViewController {
 //        if let items = defaults.array(forKey: "TodoItemArray") as? [Item] {
 //            itemArray = items
 //        }
-        // use now my own plist
+        // due to mod in loadItems where we provide a default value Item.fetchRequest()
+        // it is not necessary to give an argument here
+        //let request : NSFetchRequest<Item> = Item.fetchRequest()
+        // this request is in fact empty and will return all items
         loadItems()
     }
 
@@ -74,8 +82,14 @@ class TodoListViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
             //print (itemArray[indexPath.row])
-        
+        // ok to flag
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+        
+        // now try to delete the item (row) only a test but it is working well!!
+//        context.delete(itemArray[indexPath.row])
+//        // delete first the context before itemArray otherwise row value will be invalid to delete in the context
+//        itemArray.remove(at: indexPath.row)
+
         saveItems()
         
     }
@@ -87,9 +101,12 @@ class TodoListViewController: UITableViewController {
         let alert = UIAlertController(title: "Add new todoey item", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "Add item", style: .default) { (action) in
-            print (textField)
-            let newItem = Item()
+            //print (textField)
+            
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
+            
             self.itemArray.append(newItem)
             
             self.saveItems()
@@ -111,29 +128,78 @@ class TodoListViewController: UITableViewController {
     
     func saveItems() {
         // use now encoder to use my own plist that will accept custom variable like a dictionary
-        let encoder = PropertyListEncoder()
+//        let encoder = PropertyListEncoder()
+//        
+//        do {
+//            let data = try encoder.encode(itemArray)
+//            try data.write(to: datafilePath!)
+//        } catch {
+//            print("Error encoding itemArray, \(error)")
+//        }
         
+        // with CoreData
+        // we now commit all changes made in context (temporary area)
+
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: datafilePath!)
+            try context.save()
         } catch {
-            print("Error encoding itemArray, \(error)")
+            print("Error saving context, \(error)")
         }
         self.tableView.reloadData()
 
     }
     
-    func loadItems() {
-        
-        if let data = try? Data(contentsOf: datafilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-            itemArray = try decoder.decode([Item].self, from: data)
-            } catch {
-                print("Error decoding itemAray, \(error)")
-            }
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()) {
+//        // used with NSCoder and own plist
+//        if let data = try? Data(contentsOf: datafilePath!) {
+//            let decoder = PropertyListDecoder()
+//            do {
+//            itemArray = try decoder.decode([Item].self, from: data)
+//            } catch {
+//                print("Error decoding itemAray, \(error)")
+//            }
+//        }
+
+        // used with CoreData
+        // not needed let request : NSFetchRequest<Item> = Item.fetchRequest()
+        do {
+            itemArray =  try context.fetch(request)
+        } catch {
+            print("Context is not available,\(error)")
         }
+        tableView.reloadData()
 
     }
 }
 
+// insteed to add delegate in the main viewcontroller, add an extension here
+extension TodoListViewController: UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        //print(searchBar.text)
+        // [cd] means c is NOT case sensitive and d not diacritic (accent)
+        request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+
+        loadItems(with: request)
+    }
+// doesn't work !!!
+//    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+//        print("Cancel search")
+//        loadItems()
+//    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+            
+        }
+    }
+}
