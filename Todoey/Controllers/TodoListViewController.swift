@@ -12,6 +12,13 @@ import CoreData
 class TodoListViewController: UITableViewController {
 
     var itemArray = [Item]()
+    
+    var selectedCategory : Category? {
+        didSet {
+            loadItems()
+        }
+    }
+
 
     // set as global to declare a new plist insteed using userDefault one
     // this will declare where my plist will be stored
@@ -50,7 +57,7 @@ class TodoListViewController: UITableViewController {
         // it is not necessary to give an argument here
         //let request : NSFetchRequest<Item> = Item.fetchRequest()
         // this request is in fact empty and will return all items
-        loadItems()
+        //loadItems() called now in selectedCategory
     }
 
     //MARK- TableView datasource method
@@ -105,6 +112,7 @@ class TodoListViewController: UITableViewController {
             
             let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.parentCategory = self.selectedCategory
             newItem.done = false
             
             self.itemArray.append(newItem)
@@ -149,7 +157,7 @@ class TodoListViewController: UITableViewController {
 
     }
     
-    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()) {
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate : NSPredicate? = nil) {
 //        // used with NSCoder and own plist
 //        if let data = try? Data(contentsOf: datafilePath!) {
 //            let decoder = PropertyListDecoder()
@@ -162,6 +170,15 @@ class TodoListViewController: UITableViewController {
 
         // used with CoreData
         // not needed let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        } else {
+            request.predicate = categoryPredicate
+        }
+        
         do {
             itemArray =  try context.fetch(request)
         } catch {
@@ -180,11 +197,11 @@ extension TodoListViewController: UISearchBarDelegate {
         
         //print(searchBar.text)
         // [cd] means c is NOT case sensitive and d not diacritic (accent)
-        request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
         
         request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
 
-        loadItems(with: request)
+        loadItems(with: request, predicate: predicate)
     }
 // doesn't work !!!
 //    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
